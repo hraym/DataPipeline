@@ -1,0 +1,1 @@
+WORLD_BANK_URL = http://api.worldbank.org/v2
