@@ -92,13 +92,16 @@ The asynchronous data fetching mechanism ensures efficient retrieval of large da
 
 Data is processed locally, ensuring compliance with data protection regulations. Implement appropriate access controls and encryption if deploying in a multi-user or cloud environment.
 
-## Contributing
-
-We welcome contributions that enhance the functionality or efficiency of this pipeline. Please refer to our contributing guidelines for more information.
-
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the Creative Commons Attribution 4.0 International License (CC BY 4.0). This means you are free to:
+
+Share — copy and redistribute the material in any medium or format
+Adapt — remix, transform, and build upon the material for any purpose, even commercially
+
+Under the following terms:
+
+Attribution — You must give appropriate credit, provide a link to the license, and indicate if changes were made. You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use.
 
 ## Acknowledgements
 
@@ -109,6 +112,4 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 For inquiries or support, please contact:
 
-Your Name - email@example.com
-
-Project Repository: [https://github.com/yourusername/world-bank-data-pipeline](https://github.com/yourusername/world-bank-data-pipeline)
+Harry Raymond - harryraym@gmail.com
