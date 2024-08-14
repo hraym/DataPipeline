@@ -1,38 +1,42 @@
 import pandas as pd
-from typing import List, Dict
+from typing import List, Dict, Tuple
 import logging
 
 logger = logging.getLogger(__name__)
 
 class DataProcessor:
     @staticmethod
-    def process_world_bank_data(data: List[Dict], indicator: str) -> pd.DataFrame:
+    def process_world_bank_data(data: List[Dict], indicator_code: str) -> Tuple[pd.DataFrame, str]:
         if not data:
-            logger.warning(f"No data retrieved for indicator: {indicator}")
-            return pd.DataFrame()
+            logger.warning(f"No data retrieved for indicator: {indicator_code}")
+            return pd.DataFrame(), indicator_code
 
         df = pd.DataFrame(data)
 
-        df['country_name'] = df['country'].apply(lambda x: x['value'] if isinstance(x, dict) else x)
+        # Extract the indicator name from the first row
+        indicator_name = indicator_code
+        if 'indicator' in df.columns and len(df) > 0:
+            indicator_value = df['indicator'].iloc[0]
+            if isinstance(indicator_value, dict) and 'value' in indicator_value:
+                indicator_name = indicator_value['value']
+            elif isinstance(indicator_value, str):
+                indicator_name = indicator_value
+
+        if 'country' in df.columns:
+            df['country_name'] = df['country'].apply(lambda x: x['value'] if isinstance(x, dict) else x)
+        elif 'country_name' not in df.columns:
+            logger.warning(f"No 'country' or 'country_name' column found for indicator: {indicator_code}")
+            return pd.DataFrame(), indicator_name
+
         df['value'] = pd.to_numeric(df['value'], errors='coerce')
-        df['date'] = pd.to_datetime(df['date'], format='%Y')
+        df['date'] = pd.to_datetime(df['date'], format='%Y', errors='coerce')
 
-        df = df.drop(columns=['indicator', 'obs_status', 'decimal', 'country', 'unit'])
-        df = df.rename(columns={'countryiso3code': 'country_code', 'date': 'year', 'value': indicator})
+        columns_to_drop = ['indicator', 'obs_status', 'decimal', 'unit', 'country']
+        df = df.drop(columns=[col for col in columns_to_drop if col in df.columns])
+        df = df.rename(columns={'countryiso3code': 'country_code', 'date': 'year', 'value': indicator_code})
 
-        return df.set_index(['country_name', 'country_code', 'year']).sort_index()
+        # Set multi-index
+        df = df.set_index(['country_name', 'country_code', 'year'])
 
-    @staticmethod
-    def preprocess_for_visualization(data: Dict[str, pd.DataFrame]) -> Dict[str, pd.DataFrame]:
-        processed_data = {}
-        for indicator, df in data.items():
-            # Reset the index to convert MultiIndex to columns
-            df_reset = df.reset_index()
-            # Set 'year' as the index
-            df_reset = df_reset.set_index('year')
-            # Drop the 'country_code' column
-            df_reset = df_reset.drop(columns=['country_code'])
-            # Pivot the dataframe
-            df_pivot = df_reset.pivot(columns='country_name', values=indicator)
-            processed_data[indicator] = df_pivot
-        return processed_data
+        logger.info(f"Successfully processed data for indicator: {indicator_code}")
+        return df, indicator_name
