@@ -13,11 +13,13 @@ class DataProcessor:
 
         df = pd.DataFrame(data)
 
+        indicator_name = df['indicator'].iloc[0]['value'] if df['indicator'].iloc[0] and isinstance(df['indicator'].iloc[0], dict) else indicator
+
         df['country_name'] = df['country'].apply(lambda x: x['value'] if isinstance(x, dict) else x)
         df['value'] = pd.to_numeric(df['value'], errors='coerce')
         df['date'] = pd.to_datetime(df['date'], format='%Y')
 
         df = df.drop(columns=['indicator', 'obs_status', 'decimal', 'country', 'unit'])
-        df = df.rename(columns={'countryiso3code': 'country_code', 'date': 'year', 'value': indicator})
+        df = df.rename(columns={'countryiso3code': 'country_code', 'date': 'year', 'value': indicator_name})
 
         return df.set_index(['country_name', 'country_code', 'year']).sort_index()
