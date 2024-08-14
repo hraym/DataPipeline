@@ -26,7 +26,10 @@ class WorldBankAPI:
                     response.raise_for_status()
                     data = await response.json()
 
-                if not data or len(data) < 2 or not data[1]:
+                if not data or len(data) < 2:
+                    raise WorldBankAPIError(f"Invalid or empty response for indicator: {indicator}")
+
+                if not data[1]:  # This checks if the data array is empty
                     break
 
                 all_data.extend(data[1])
@@ -38,5 +41,7 @@ class WorldBankAPI:
             except aiohttp.ClientError as e:
                 raise WorldBankAPIError(f"Error fetching data for {indicator}: {str(e)}")
 
-        return all_data
+        if not all_data:
+            raise WorldBankAPIError(f"No data found for indicator: {indicator}")
 
+        return all_data
