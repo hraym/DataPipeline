@@ -8,3 +8,6 @@ env
 fetchctrade.ipynb
 *.ipynb
 wb_cache/
+fetchctrade.ipynb
+fetchwb.ipynb
+wb_dashboard.ipynb
