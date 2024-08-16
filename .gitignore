@@ -5,3 +5,5 @@ __pycache__/
 *.class
 .DS_Store
 env
+fetchctrade.ipynb
+*.ipynb
