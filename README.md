@@ -1,5 +1,5 @@
 # World Bank Data Pipeline
-python3 main.py --indicators NY.GDP.MKTP.CD SP.POP.TOTL --countries USA CHN JPN --start_year 2010 --end_year 2020
+python3 main.py --indicators EG.ELC.ACCS.ZS SN.ITK.DEFC.ZS --countries BRA IND KEN --start_year 2000 --end_year 2020
 ## Project Overview
 
 This data engineering solution automates the visualization of world bank development data. It demonstrates a robust, scalable approach to constructing data pipelines for economic analysis and business intelligence applications.
@@ -39,26 +39,6 @@ world_bank_data/
 ├── main.py                  # Pipeline execution entry point
 └── requirements.txt         # Dependency specifications
 ```
-world_bank_data/
-│
-├── src/
-│   ├── __init__.py
-│   ├── api.py
-│   ├── data_processor.py
-│   ├── pipeline.py
-│   ├── dashboard.py  # New file
-│   └── exceptions.py
-│
-├── tests/
-│   ├── __init__.py
-│   ├── test_api.py
-│   ├── test_data_processor.py
-│   ├── test_pipeline.py
-│   └── test_dashboard.py  # New file for testing dashboard
-│
-├── config.py
-├── main.py
-└── requirements.txt
 
 ## Prerequisites
 
@@ -90,7 +70,7 @@ python main.py --indicators <indicator_codes> --countries <country_codes> --star
 
 Example:
 ```bash
-python main.py --indicators SN.ITK.DEFC.ZS EG.ELC.ACCS.ZS --countries USA CHN JPN --start_year 2000 --end_year 2020
+python3 main.py --indicators EG.ELC.ACCS.ZS SN.ITK.DEFC.ZS --countries BRA IND KEN --start_year 2000 --end_year 2020
 ```
 
 ## Testing and Quality Assurance
@@ -103,7 +83,7 @@ pytest tests/
 
 ## Data Visualization Capabilities
 
-Creates an interactive dahsboard showcasing the progress towards the sustainable development goals. 
+Creates an interactive dahsboard showcasing the progress  
 
 ## Extensibility and Customization
 
