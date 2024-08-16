@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from typing import List, Dict, Tuple
 import logging
 
@@ -9,11 +10,11 @@ class DataProcessor:
     def process_world_bank_data(data: List[Dict], indicator_code: str) -> Tuple[pd.DataFrame, str]:
         if not data:
             logger.warning(f"No data retrieved for indicator: {indicator_code}")
-            return pd.DataFrame(), indicator_code
+            return pd.DataFrame(columns=['country_name', 'country_code', 'year', indicator_code]), indicator_code
 
         df = pd.DataFrame(data)
 
-        # Extract the indicator name from the first row
+        # Extract the indicator name
         indicator_name = indicator_code
         if 'indicator' in df.columns and len(df) > 0:
             indicator_value = df['indicator'].iloc[0]
@@ -22,21 +23,30 @@ class DataProcessor:
             elif isinstance(indicator_value, str):
                 indicator_name = indicator_value
 
+        # Process country information
         if 'country' in df.columns:
-            df['country_name'] = df['country'].apply(lambda x: x['value'] if isinstance(x, dict) else x)
-        elif 'country_name' not in df.columns:
-            logger.warning(f"No 'country' or 'country_name' column found for indicator: {indicator_code}")
-            return pd.DataFrame(), indicator_name
+            df['country_name'] = df['country'].apply(lambda x: x['value'] if isinstance(x, dict) and 'value' in x else str(x))
+            df['country_code'] = df['countryiso3code']
+        else:
+            logger.warning(f"No 'country' column found for indicator: {indicator_code}")
+            return pd.DataFrame(columns=['country_name', 'country_code', 'year', indicator_name]), indicator_name
 
+        # Process date and value
         df['value'] = pd.to_numeric(df['value'], errors='coerce')
-        df['date'] = pd.to_datetime(df['date'], format='%Y', errors='coerce')
+        df['year'] = pd.to_datetime(df['date'], format='%Y', errors='coerce').dt.year
 
-        columns_to_drop = ['indicator', 'obs_status', 'decimal', 'unit', 'country']
-        df = df.drop(columns=[col for col in columns_to_drop if col in df.columns])
-        df = df.rename(columns={'countryiso3code': 'country_code', 'date': 'year', 'value': indicator_code})
+        # Select and rename columns
+        columns_to_keep = ['country_name', 'country_code', 'year', 'value']
+        df = df[columns_to_keep].rename(columns={'value': indicator_name})
 
-        # Set multi-index
+        # Handle missing values
+        df = df.dropna(subset=['country_name', 'country_code', 'year'])
+
+        # Set index
         df = df.set_index(['country_name', 'country_code', 'year'])
+
+        # Ensure numeric values are float64
+        df[indicator_name] = df[indicator_name].astype('float64')
 
         logger.info(f"Successfully processed data for indicator: {indicator_code}")
         return df, indicator_name
