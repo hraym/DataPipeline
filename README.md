@@ -1,8 +1,8 @@
 # World Bank Data Pipeline
-
+python3 main.py --indicators NY.GDP.MKTP.CD SP.POP.TOTL --countries USA CHN JPN --start_year 2010 --end_year 2020
 ## Project Overview
 
-This data engineering solution automates the extraction, processing, and analysis of World Bank economic indicators. It demonstrates a robust, scalable approach to constructing data pipelines for economic analysis and business intelligence applications.
+This data engineering solution automates the visualization of world bank development data. It demonstrates a robust, scalable approach to constructing data pipelines for economic analysis and business intelligence applications.
 
 ## Key Features
 
@@ -12,7 +12,7 @@ This data engineering solution automates the extraction, processing, and analysi
 - Modular architecture facilitating maintenance and testing
 - Efficient data processing and cleaning utilizing pandas
 - Automated data quality checks and validation
-- (Optional) Dynamic visualization of key economic trends
+- Dynamic visualization of development trends
 
 ## Technical Architecture
 
@@ -20,20 +20,45 @@ This data engineering solution automates the extraction, processing, and analysi
 world_bank_data/
 │
 ├── src/
-│   ├── api.py            # API interaction module
-│   ├── data_processor.py # Data transformation module
-│   ├── pipeline.py       # Core pipeline logic
-│   └── exceptions.py     # Exception handling
+│   ├── __init__.py
+│   ├── api.py                # API interaction module
+│   ├── indicators_config.py  # Indicator theme dictionary
+│   ├── data_processor.py     # Data transformation module
+│   ├── pipeline.py           # Core pipeline logic
+│   ├── dashboard.py          # For data visualization
+│   └── exceptions.py         # Exception handling
 │
 ├── tests/
+│   ├── __init__.py 
 │   ├── test_api.py
 │   ├── test_data_processor.py
-│   └── test_pipeline.py
+│   ├── test_pipeline.py
+│   └── test_dashboard.py
 │
-├── config.py             # Configuration parameters
-├── main.py               # Pipeline execution entry point
-└── requirements.txt      # Dependency specifications
+├── config.py                # Configuration parameters
+├── main.py                  # Pipeline execution entry point
+└── requirements.txt         # Dependency specifications
 ```
+world_bank_data/
+│
+├── src/
+│   ├── __init__.py
+│   ├── api.py
+│   ├── data_processor.py
+│   ├── pipeline.py
+│   ├── dashboard.py  # New file
+│   └── exceptions.py
+│
+├── tests/
+│   ├── __init__.py
+│   ├── test_api.py
+│   ├── test_data_processor.py
+│   ├── test_pipeline.py
+│   └── test_dashboard.py  # New file for testing dashboard
+│
+├── config.py
+├── main.py
+└── requirements.txt
 
 ## Prerequisites
 
@@ -65,7 +90,7 @@ python main.py --indicators <indicator_codes> --countries <country_codes> --star
 
 Example:
 ```bash
-python main.py --indicators NY.GDP.MKTP.CD SP.POP.TOTL --countries USA CHN JPN --start_year 2000 --end_year 2020
+python main.py --indicators SN.ITK.DEFC.ZS EG.ELC.ACCS.ZS --countries USA CHN JPN --start_year 2000 --end_year 2020
 ```
 
 ## Testing and Quality Assurance
@@ -78,7 +103,7 @@ pytest tests/
 
 ## Data Visualization Capabilities
 
-(If implemented, describe visualization features and their business applications)
+Creates an interactive dahsboard showcasing the progress towards the sustainable development goals. 
 
 ## Extensibility and Customization
 
