@@ -1,6 +1,6 @@
 import dash
 from dash import dcc, html
-from dash.dependencies import Input, Output, State
+from dash.dependencies import Input, Output
 import plotly.express as px
 import pandas as pd
 import re
@@ -31,7 +31,7 @@ styles = {
         'padding': '10px',
         'marginBottom': '10px'
     },
-     'dropdown': {
+    'dropdown': {
         'borderColor': '#bdc3c7',
         'borderRadius': '4px'
     },
@@ -54,6 +54,10 @@ def extract_axis_title(indicator_name):
     else:
         return indicator_name
 
+def create_color_map(countries):
+    color_scale = px.colors.qualitative.Plotly
+    return {country: color_scale[i % len(color_scale)] for i, country in enumerate(countries)}
+
 def create_dashboard(data, indicators_standard, indicator_mapping):
     app = dash.Dash(__name__)
 
@@ -62,6 +66,7 @@ def create_dashboard(data, indicators_standard, indicator_mapping):
 
     first_df = next(iter(data.values()))
     countries = sorted(first_df.index.get_level_values('country_name').unique().tolist())
+    color_map = create_color_map(countries)
 
     global_available_indicators = {category: [ind for ind in indicators if ind in data]
                                    for category, indicators in indicators_standard.items()}
@@ -143,8 +148,9 @@ def create_dashboard(data, indicators_standard, indicator_mapping):
         indicator_name = indicator_mapping.get(selected_indicator, selected_indicator)
         y_axis_title = extract_axis_title(indicator_name)
         fig = px.line(df_filtered, x='year', y=indicator_name, color='country_name',
-                      title=f'{truncate_indicator_name(indicator_name)} Over Time')
-        fig.update_layout(yaxis_title=y_axis_title)
+                      color_discrete_map=color_map,
+                      title=f'{truncate_indicator_name(indicator_name)} ')
+        fig.update_layout(yaxis_title=y_axis_title, xaxis_title="Year", legend_title_text='Country')
         return update_graph_layout(fig)
     
     @app.callback(
@@ -163,8 +169,9 @@ def create_dashboard(data, indicators_standard, indicator_mapping):
         indicator_name = indicator_mapping.get(selected_indicator, selected_indicator)
         y_axis_title = extract_axis_title(indicator_name)
         fig = px.bar(df_latest, x='country_name', y=indicator_name,
-                     title=f'{truncate_indicator_name(indicator_name)} - Latest Year ({latest_year})')
-        fig.update_layout(yaxis_title=y_axis_title)
+                     color='country_name', color_discrete_map=color_map,
+                     title=f'{truncate_indicator_name(indicator_name)} - Latest Year - {latest_year}')
+        fig.update_layout(yaxis_title=y_axis_title, xaxis_title="Country", showlegend=False)
         return update_graph_layout(fig)
     
     @app.callback(
@@ -196,9 +203,16 @@ def create_dashboard(data, indicators_standard, indicator_mapping):
         x_axis_title = extract_axis_title(indicator_name1)
         y_axis_title = extract_axis_title(indicator_name2)
         
-        fig = px.scatter(df_latest, x=indicator_name1, y=indicator_name2, hover_name='country_name',
+        fig = px.scatter(df_latest, x=indicator_name1, y=indicator_name2, 
+                         color='country_name', color_discrete_map=color_map,
+                         hover_name='country_name',
                          labels={indicator_name1: x_axis_title, indicator_name2: y_axis_title},
                          title=f'{truncate_indicator_name(indicator_name1)} vs {truncate_indicator_name(indicator_name2)} - {latest_year}')
+        
+        fig.update_traces(marker=dict(size=12))  # Increase marker size
+        fig.update_layout(showlegend=False)  # Remove legend
+        
+        
         return update_graph_layout(fig)
 
     return app
@@ -218,7 +232,4 @@ def update_graph_layout(fig):
 
 def run_dashboard(data, indicators_standard, indicator_mapping):
     app = create_dashboard(data, indicators_standard, indicator_mapping)
-    
-
-    
     app.run_server(debug=True)
