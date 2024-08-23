@@ -14,6 +14,9 @@ This data engineering solution automates the visualization of world bank develop
 - Automated data quality checks and validation
 - Dynamic visualization of development trends
 
+## Dashboard Example
+![Dashboard](Dashboard.png)
+
 ## Technical Architecture
 
 ```
