@@ -1,6 +1,6 @@
 import dash
 from dash import dcc, html
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 import plotly.express as px
 import pandas as pd
 import re
@@ -31,7 +31,7 @@ styles = {
         'padding': '10px',
         'marginBottom': '10px'
     },
-    'dropdown': {
+     'dropdown': {
         'borderColor': '#bdc3c7',
         'borderRadius': '4px'
     },
@@ -61,7 +61,7 @@ def create_dashboard(data, indicators_standard, indicator_mapping):
         return app
 
     first_df = next(iter(data.values()))
-    countries = first_df.index.get_level_values('country_name').unique().tolist()
+    countries = sorted(first_df.index.get_level_values('country_name').unique().tolist())
 
     global_available_indicators = {category: [ind for ind in indicators if ind in data]
                                    for category, indicators in indicators_standard.items()}
@@ -94,7 +94,8 @@ def create_dashboard(data, indicators_standard, indicator_mapping):
                         options=[{'label': country, 'value': country} for country in countries],
                         value=countries[:5] if len(countries) >= 5 else countries,
                         multi=True,
-                        style=styles['dropdown']
+                        style=styles['dropdown'],
+                        className='dropdown'
                     )
                 ], style={'width': '32%', 'display': 'inline-block'})
             ], style=styles['dropdown_container']),
@@ -137,12 +138,12 @@ def create_dashboard(data, indicators_standard, indicator_mapping):
         if not selected_indicator or not selected_countries:
             return {}
         df = data[selected_indicator]
-        df_filtered = df.loc[pd.IndexSlice[selected_countries, :, :], :]
+        df_filtered = df.loc[df.index.get_level_values('country_name').isin(selected_countries)]
         df_filtered = df_filtered.reset_index()
         indicator_name = indicator_mapping.get(selected_indicator, selected_indicator)
         y_axis_title = extract_axis_title(indicator_name)
         fig = px.line(df_filtered, x='year', y=indicator_name, color='country_name',
-                      title=f'{indicator_name} Over Time')
+                      title=f'{truncate_indicator_name(indicator_name)} Over Time')
         fig.update_layout(yaxis_title=y_axis_title)
         return update_graph_layout(fig)
     
@@ -155,14 +156,14 @@ def create_dashboard(data, indicators_standard, indicator_mapping):
         if not selected_indicator or not selected_countries:
             return {}
         df = data[selected_indicator]
-        df_filtered = df.loc[pd.IndexSlice[selected_countries, :, :], :]
+        df_filtered = df.loc[df.index.get_level_values('country_name').isin(selected_countries)]
         latest_year = df_filtered.index.get_level_values('year').max()
-        df_latest = df_filtered.loc[pd.IndexSlice[:, :, latest_year], :]
+        df_latest = df_filtered.loc[df_filtered.index.get_level_values('year') == latest_year]
         df_latest = df_latest.reset_index()
         indicator_name = indicator_mapping.get(selected_indicator, selected_indicator)
         y_axis_title = extract_axis_title(indicator_name)
         fig = px.bar(df_latest, x='country_name', y=indicator_name,
-                     title=f'{indicator_name} - Latest Year ({latest_year})')
+                     title=f'{truncate_indicator_name(indicator_name)} - Latest Year ({latest_year})')
         fig.update_layout(yaxis_title=y_axis_title)
         return update_graph_layout(fig)
     
@@ -181,8 +182,8 @@ def create_dashboard(data, indicators_standard, indicator_mapping):
             return {}
         
         indicator1, indicator2 = category_indicators[:2]
-        df1 = data[indicator1].loc[pd.IndexSlice[selected_countries, :, :], :]
-        df2 = data[indicator2].loc[pd.IndexSlice[selected_countries, :, :], :]
+        df1 = data[indicator1].loc[data[indicator1].index.get_level_values('country_name').isin(selected_countries)]
+        df2 = data[indicator2].loc[data[indicator2].index.get_level_values('country_name').isin(selected_countries)]
         
         df_merged = pd.merge(df1.reset_index(), df2.reset_index(), on=['country_name', 'country_code', 'year'])
         
@@ -196,8 +197,8 @@ def create_dashboard(data, indicators_standard, indicator_mapping):
         y_axis_title = extract_axis_title(indicator_name2)
         
         fig = px.scatter(df_latest, x=indicator_name1, y=indicator_name2, hover_name='country_name',
-                         title=f'{indicator_name1} vs {indicator_name2} - Latest Year ({latest_year})')
-        fig.update_layout(xaxis_title=x_axis_title, yaxis_title=y_axis_title)
+                         labels={indicator_name1: x_axis_title, indicator_name2: y_axis_title},
+                         title=f'{truncate_indicator_name(indicator_name1)} vs {truncate_indicator_name(indicator_name2)} - {latest_year}')
         return update_graph_layout(fig)
 
     return app
@@ -217,4 +218,7 @@ def update_graph_layout(fig):
 
 def run_dashboard(data, indicators_standard, indicator_mapping):
     app = create_dashboard(data, indicators_standard, indicator_mapping)
+    
+
+    
     app.run_server(debug=True)
