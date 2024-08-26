@@ -20,4 +20,5 @@ logging==0.5.1.2
 mypy==0.910
 
 # Command line interface
-argparse==1.4.0
+argparse==1.4.0pymongo==4.3.3
+apache-airflow==2.6.1
