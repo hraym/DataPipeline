@@ -62,11 +62,15 @@ def create_dashboard(data, indicators_standard, indicator_mapping):
     app = dash.Dash(__name__)
 
     if not data:
+        app.layout = html.Div("No data available")
         return app
 
     first_df = next(iter(data.values()))
     countries = sorted(first_df.index.get_level_values('country_name').unique().tolist())
     color_map = create_color_map(countries)
+
+    # Get the indicator names from the data
+    indicator_names = {code: df['indicator_name'].iloc[0] for code, df in data.items()}
 
     global_available_indicators = {category: [ind for ind in indicators if ind in data]
                                    for category, indicators in indicators_standard.items()}
@@ -129,7 +133,7 @@ def create_dashboard(data, indicators_standard, indicator_mapping):
     def update_indicator_dropdown(selected_category):
         if not selected_category:
             return [], None
-        options = [{'label': truncate_indicator_name(indicator_mapping.get(indicator, indicator)), 
+        options = [{'label': indicator_names.get(indicator, indicator), 
                     'value': indicator} 
                    for indicator in global_available_indicators[selected_category]]
         return options, options[0]['value'] if options else None
@@ -145,13 +149,29 @@ def create_dashboard(data, indicators_standard, indicator_mapping):
         df = data[selected_indicator]
         df_filtered = df.loc[df.index.get_level_values('country_name').isin(selected_countries)]
         df_filtered = df_filtered.reset_index()
-        indicator_name = indicator_mapping.get(selected_indicator, selected_indicator)
-        y_axis_title = extract_axis_title(indicator_name)
-        fig = px.line(df_filtered, x='year', y=indicator_name, color='country_name',
-                      color_discrete_map=color_map,
-                      title=f'{truncate_indicator_name(indicator_name)} ')
-        fig.update_layout(yaxis_title=y_axis_title, xaxis_title="Year", legend_title_text='Country')
-        return update_graph_layout(fig)
+        
+        # Check for empty DataFrame
+        if df_filtered.empty:
+            print("Warning: Filtered DataFrame is empty")
+            return {}
+        
+        # Check for required columns
+        required_columns = ['year', 'value', 'country_name']
+        missing_columns = [col for col in required_columns if col not in df_filtered.columns]
+        if missing_columns:
+            print(f"Warning: Missing columns: {missing_columns}")
+            return {}
+        
+        try:
+            indicator_name = indicator_names.get(selected_indicator, selected_indicator)
+            fig = px.line(df_filtered, x='year', y='value', color='country_name',
+                          color_discrete_map=color_map,
+                          title=f'{indicator_name}')
+            fig.update_layout(yaxis_title=indicator_name, xaxis_title="Year", legend_title_text='Country')
+            return update_graph_layout(fig)
+        except Exception as e:
+            print(f"Error creating figure: {str(e)}")
+            return {}
     
     @app.callback(
         Output('bar-chart', 'figure'),
@@ -166,12 +186,11 @@ def create_dashboard(data, indicators_standard, indicator_mapping):
         latest_year = df_filtered.index.get_level_values('year').max()
         df_latest = df_filtered.loc[df_filtered.index.get_level_values('year') == latest_year]
         df_latest = df_latest.reset_index()
-        indicator_name = indicator_mapping.get(selected_indicator, selected_indicator)
-        y_axis_title = extract_axis_title(indicator_name)
-        fig = px.bar(df_latest, x='country_name', y=indicator_name,
+        indicator_name = indicator_names.get(selected_indicator, selected_indicator)
+        fig = px.bar(df_latest, x='country_name', y='value',
                      color='country_name', color_discrete_map=color_map,
-                     title=f'{truncate_indicator_name(indicator_name)} - Latest Year - {latest_year}')
-        fig.update_layout(yaxis_title=y_axis_title, xaxis_title="Country", showlegend=False)
+                     title=f'{indicator_name} - Latest Year ({latest_year})')
+        fig.update_layout(yaxis_title=indicator_name, xaxis_title="Country", showlegend=False)
         return update_graph_layout(fig)
     
     @app.callback(
@@ -197,21 +216,17 @@ def create_dashboard(data, indicators_standard, indicator_mapping):
         latest_year = df_merged['year'].max()
         df_latest = df_merged[df_merged['year'] == latest_year]
         
-        indicator_name1 = indicator_mapping.get(indicator1, indicator1)
-        indicator_name2 = indicator_mapping.get(indicator2, indicator2)
+        indicator_name1 = indicator_names.get(indicator1, indicator1)
+        indicator_name2 = indicator_names.get(indicator2, indicator2)
         
-        x_axis_title = extract_axis_title(indicator_name1)
-        y_axis_title = extract_axis_title(indicator_name2)
-        
-        fig = px.scatter(df_latest, x=indicator_name1, y=indicator_name2, 
+        fig = px.scatter(df_latest, x='value_x', y='value_y', 
                          color='country_name', color_discrete_map=color_map,
                          hover_name='country_name',
-                         labels={indicator_name1: x_axis_title, indicator_name2: y_axis_title},
-                         title=f'{truncate_indicator_name(indicator_name1)} vs {truncate_indicator_name(indicator_name2)} - {latest_year}')
+                         labels={'value_x': indicator_name1, 'value_y': indicator_name2},
+                         title=f'{indicator_name1} vs {indicator_name2} - {latest_year}')
         
         fig.update_traces(marker=dict(size=12))  # Increase marker size
         fig.update_layout(showlegend=False)  # Remove legend
-        
         
         return update_graph_layout(fig)
 

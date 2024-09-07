@@ -11,3 +11,5 @@ wb_cache/
 fetchctrade.ipynb
 fetchwb.ipynb
 wb_dashboard.ipynb
+.ipynb_checkpoints
+.ipynb_checkpoints

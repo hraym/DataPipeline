@@ -1,5 +1,7 @@
 # World Bank Data Pipeline
+
 python3 main.py --indicators EG.ELC.ACCS.ZS SN.ITK.DEFC.ZS --countries BRA IND KEN --start_year 2000 --end_year 2020
+
 ## Project Overview
 
 This data engineering solution automates the visualization of world bank development data. It demonstrates a robust, scalable approach to constructing data pipelines for economic analysis and business intelligence applications.
@@ -22,6 +24,10 @@ This data engineering solution automates the visualization of world bank develop
 ```
 world_bank_data/
 │
+├── airflow/
+│   └── dags/
+│       └── wbd_dag.py
+│
 ├── src/
 │   ├── __init__.py
 │   ├── api.py                # API interaction module
@@ -29,14 +35,19 @@ world_bank_data/
 │   ├── data_processor.py     # Data transformation module
 │   ├── pipeline.py           # Core pipeline logic
 │   ├── dashboard.py          # For data visualization
-│   └── exceptions.py         # Exception handling
+│   ├── exceptions.py         # Exception handling
+│   └── database.py           # MongoDB interactions
+│
+├── scripts/
+│   └── run_dashboard.py
 │
 ├── tests/
 │   ├── __init__.py 
 │   ├── test_api.py
 │   ├── test_data_processor.py
 │   ├── test_pipeline.py
-│   └── test_dashboard.py
+│   ├── test_dashboard.py
+│   └── test_database.py
 │
 ├── config.py                # Configuration parameters
 ├── main.py                  # Pipeline execution entry point
@@ -52,11 +63,11 @@ world_bank_data/
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/world-bank-data-pipeline.git
+   git clone https://github.com/hraym/DataPipeline.git
    ```
 2. Navigate to the project directory:
    ```
-   cd world-bank-data-pipeline
+   cd DataPipeline
    ```
 3. Install required packages:
    ```

@@ -7,12 +7,12 @@ logger = logging.getLogger(__name__)
 
 class DataProcessor:
     @staticmethod
-    def process_world_bank_data(data: List[Dict], indicator_code: str) -> Tuple[pd.DataFrame, str]:
-        if not data:
+    def process_world_bank_data(raw_data: List[Dict], indicator_code: str) -> Tuple[pd.DataFrame, str]:
+        if not raw_data:
             logger.warning(f"No data retrieved for indicator: {indicator_code}")
-            return pd.DataFrame(columns=['country_name', 'country_code', 'year', indicator_code]), indicator_code
+            return pd.DataFrame(columns=['country_name', 'country_code', 'year', 'value']), indicator_code
 
-        df = pd.DataFrame(data)
+        df = pd.DataFrame(raw_data)
 
         # Extract the indicator name
         indicator_name = indicator_code
@@ -29,7 +29,7 @@ class DataProcessor:
             df['country_code'] = df['countryiso3code']
         else:
             logger.warning(f"No 'country' column found for indicator: {indicator_code}")
-            return pd.DataFrame(columns=['country_name', 'country_code', 'year', indicator_name]), indicator_name
+            return pd.DataFrame(columns=['country_name', 'country_code', 'year', 'value']), indicator_name
 
         # Process date and value
         df['value'] = pd.to_numeric(df['value'], errors='coerce')
@@ -37,16 +37,16 @@ class DataProcessor:
 
         # Select and rename columns
         columns_to_keep = ['country_name', 'country_code', 'year', 'value']
-        df = df[columns_to_keep].rename(columns={'value': indicator_name})
+        df = df[columns_to_keep]
 
         # Handle missing values
-        df = df.dropna(subset=['country_name', 'country_code', 'year'])
+        df = df.dropna(subset=['country_name', 'country_code', 'year', 'value'])
 
         # Set index
         df = df.set_index(['country_name', 'country_code', 'year'])
 
         # Ensure numeric values are float64
-        df[indicator_name] = df[indicator_name].astype('float64')
+        df['value'] = df['value'].astype('float64')
 
-        logger.info(f"Successfully processed data for indicator: {indicator_code}")
+        logger.info(f"Processed {len(df)} records for indicator {indicator_code}")
         return df, indicator_name
