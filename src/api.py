@@ -41,6 +41,10 @@ class WorldBankAPI:
             return False
 
     def fetch_indicator_data(self, indicator_code: str, country: str, start_year: int, end_year: int) -> List[Dict]:
+        # Input validation for date range
+        if end_year < start_year:
+            raise ValueError("End year must be greater than or equal to start year")
+    
         url = f"{self.base_url}/country/{country}/indicator/{indicator_code}"
         params = {
             'format': 'json',
@@ -57,7 +61,12 @@ class WorldBankAPI:
                 params['page'] = page
                 response = self.session.get(url, params=params, timeout=30)
                 response.raise_for_status()
-                data = response.json()
+    
+                try:
+                    data = response.json()
+                except ValueError as e:
+                    logger.error(f"Error parsing JSON response for indicator: {indicator_code}")
+                    raise WorldBankAPIError(f"Error parsing JSON response for indicator: {indicator_code}") from e
     
                 logger.debug(f"API Response for {indicator_code}, page {page}: {data}")
     
@@ -83,7 +92,8 @@ class WorldBankAPI:
                 retries += 1
                 time.sleep(2 ** retries)  # Exponential backoff
             except HTTPError as e:
-                if e.response.status_code == 429:  # Too Many Requests
+                status_code = getattr(e.response, 'status_code', None)
+                if status_code == 429:  # Too Many Requests
                     logger.warning("Rate limit exceeded. Waiting before retry...")
                     time.sleep(60)
                     retries += 1
@@ -98,7 +108,6 @@ class WorldBankAPI:
             logger.error(f"Max retries reached for indicator: {indicator_code}")
             raise WorldBankAPIError(f"Max retries reached for indicator: {indicator_code}")
     
-        logger.info(f"Fetched {len(all_data)} records for indicator {indicator_code} and country {country}")
         return all_data
     
     def fetch_all_data(self, queries: List[Tuple[str, List[str], int, int]]) -> Dict[str, List[Dict]]:

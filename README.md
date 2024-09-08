@@ -1,20 +1,19 @@
 # World Bank Data Pipeline
 
-python3 main.py --indicators EG.ELC.ACCS.ZS SN.ITK.DEFC.ZS --countries BRA IND KEN --start_year 2000 --end_year 2020
-
 ## Project Overview
-
-This data engineering solution automates the visualization of world bank development data. It demonstrates a robust, scalable approach to constructing data pipelines for economic analysis and business intelligence applications.
+This data engineering solution automates the retrieval, processing, storage, and visualization of World Bank development data. It demonstrates a robust, scalable approach to constructing data pipelines for economic analysis and business intelligence applications. The pipeline is orchestrated using Apache Airflow, ensuring automated, scheduled updates and efficient data management.
 
 ## Key Features
-
 - Asynchronous data retrieval from the World Bank API
 - Customizable selection of economic indicators and countries
 - Comprehensive error handling and logging mechanisms
 - Modular architecture facilitating maintenance and testing
 - Efficient data processing and cleaning utilizing pandas
 - Automated data quality checks and validation
-- Dynamic visualization of development trends
+- Dynamic visualization of development trends using an interactive dashboard
+- Automated workflow orchestration with Apache Airflow
+- MongoDB integration for efficient data storage and retrieval
+- Regular, automated updates to ensure data freshness
 
 ## Dashboard Example
 ![Dashboard](Dashboard.png)
@@ -38,9 +37,6 @@ world_bank_data/
 │   ├── exceptions.py         # Exception handling
 │   └── database.py           # MongoDB interactions
 │
-├── scripts/
-│   └── run_dashboard.py
-│
 ├── tests/
 │   ├── __init__.py 
 │   ├── test_api.py
@@ -57,7 +53,9 @@ world_bank_data/
 ## Prerequisites
 
 - Python 3.7+
-- Dependencies: aiohttp, pandas (full list in requirements.txt)
+- Apache Airflow 2.0+
+- MongoDB
+- Dependencies: aiohttp, pandas, dash, plotly (full list in requirements.txt)
 
 ## Installation and Setup
 
@@ -73,19 +71,34 @@ world_bank_data/
    ```
    pip install -r requirements.txt
    ```
+4. Set up MongoDB and update the connection details in `config.py`
+5. Configure Airflow and place the `wbd_dag.py` file in your Airflow DAGs folder
 
 ## Usage
 
 Execute the main script with desired parameters:
 
 ```bash
-python main.py --indicators <indicator_codes> --countries <country_codes> --start_year <start> --end_year <end>
+python main.py --indicators <indicator_codes> --countries <country_codes> --start_year <start> --end_year <end> --visualize
 ```
 
 Example:
 ```bash
-python3 main.py --indicators EG.ELC.ACCS.ZS SN.ITK.DEFC.ZS --countries BRA IND KEN --start_year 2000 --end_year 2020
+python3 main.py --indicators EG.ELC.ACCS.ZS SN.ITK.DEFC.ZS --countries BRA IND KEN --start_year 2000 --end_year 2020 --visualize
 ```
+## Automated Execution with Airflow
+The pipeline is configured to run automatically on a monthly schedule using Airflow. The DAG performs the following tasks:
+
+- Check for missing data in the MongoDB database
+- Fetch any missing data from the World Bank API
+- Update the database with new data
+- Generate an updated dashboard
+
+To enable the automated workflow:
+
+- Ensure Airflow is properly configured
+- Place the wbd_dag.py file in your Airflow DAGs folder
+- Enable the DAG in the Airflow UI
 
 ## Testing and Quality Assurance
 
@@ -97,19 +110,29 @@ pytest tests/
 
 ## Data Visualization Capabilities
 
-Creates an interactive dahsboard showcasing the progress  
+The pipeline creates an interactive dashboard showcasing the progress of selected World Bank indicators over time. The dashboard includes:
+
+### Time series plots for each indicator
+
+Comparative bar charts for the latest available year
+Scatter plots to visualize relationships between indicators
+
 
 ## Extensibility and Customization
 
-The modular design allows for easy integration of additional data sources, processing steps, or analytical models. Customization can be achieved by modifying the relevant modules or extending the pipeline class.
+The modular design allows for easy integration of additional data sources, processing steps, or analytical models. Customization can be achieved by modifying the relevant modules or extending the pipeline class. The Airflow DAG can also be customized to adjust the update frequency or add additional tasks as needed.
 
 ## Performance Considerations
 
-The asynchronous data fetching mechanism ensures efficient retrieval of large datasets. For very large data volumes or real-time processing needs, consider implementing a distributed processing framework.
+The asynchronous data fetching mechanism ensures efficient retrieval of large datasets.
+MongoDB provides fast data storage and retrieval for the dashboard.
+For very large data volumes or real-time processing needs, consider implementing a distributed processing framework.
 
 ## Security and Compliance
 
-Data is processed locally, ensuring compliance with data protection regulations. Implement appropriate access controls and encryption if deploying in a multi-user or cloud environment.
+Data is processed locally and stored in MongoDB, ensuring compliance with data protection regulations.
+Implement appropriate access controls and encryption if deploying in a multi-user or cloud environment.
+Ensure that your Airflow installation is properly secured, especially if exposed to the internet.
 
 ## License
 

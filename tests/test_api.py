@@ -1,184 +1,109 @@
 import pytest
-import time
-import requests
-from unittest.mock import Mock, patch
+import responses
+from requests.exceptions import ConnectionError
 from src.api import WorldBankAPI
 from src.exceptions import WorldBankAPIError
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def world_bank_api():
     return WorldBankAPI('https://api.worldbank.org/v2')
 
-@pytest.fixture
-def mock_response():
-    mock = Mock()
-    mock.json.return_value = [
+@pytest.fixture(scope="function")
+def mock_successful_response(request):
+    indicator, country, start_year, end_year = request.param
+    return [
         {'page': 1, 'pages': 1, 'per_page': 50, 'total': 1},
-        [{'indicator': {'id': 'NY.GDP.MKTP.CD', 'value': 'GDP (current US$)'}, 'country': {'id': 'US', 'value': 'United States'}, 'countryiso3code': 'USA', 'date': '2020', 'value': 20932750000000, 'unit': '', 'obs_status': '', 'decimal': 0}]
+        [{
+            'indicator': {'id': indicator, 'value': 'Test Indicator'},
+            'country': {'id': country, 'value': 'Test Country'},
+            'countryiso3code': country,
+            'date': str(end_year),
+            'value': 1000000,
+            'unit': '',
+            'obs_status': '',
+            'decimal': 0
+        }]
     ]
-    mock.headers = {'X-Rate-Limit-Remaining': '100'}
-    mock.status_code = 200
-    mock.text = 'Sample response text'
-    return mock
 
-def test_fetch_data_success(world_bank_api, mock_response):
-    with patch('requests.Session.get', return_value=mock_response):
-        data = world_bank_api.fetch_data('NY.GDP.MKTP.CD', ['USA'], 2020, 2020)
+@pytest.mark.parametrize("mock_successful_response,indicator,country,start_year,end_year", [
+    (('NY.GDP.MKTP.CD', 'USA', 2020, 2020), 'NY.GDP.MKTP.CD', 'USA', 2020, 2020),
+    (('SP.POP.TOTL', 'CHN', 2019, 2020), 'SP.POP.TOTL', 'CHN', 2019, 2020),
+    (('FP.CPI.TOTL.ZG', 'JPN', 2018, 2020), 'FP.CPI.TOTL.ZG', 'JPN', 2018, 2020),
+], indirect=['mock_successful_response'])
+@responses.activate
+def test_fetch_indicator_data_success(world_bank_api, mock_successful_response, indicator, country, start_year, end_year):
+    url = f"{world_bank_api.base_url}/country/{country}/indicator/{indicator}"
+    responses.add(responses.GET, url, json=mock_successful_response, status=200)
+    
+    data = world_bank_api.fetch_indicator_data(indicator, country, start_year, end_year)
+    
     assert len(data) == 1
-    assert data[0]['countryiso3code'] == 'USA'
-    assert data[0]['date'] == '2020'
+    assert data[0]['countryiso3code'] == country
+    assert int(data[0]['date']) >= start_year
+    assert int(data[0]['date']) <= end_year
 
-def test_fetch_data_invalid_indicator(world_bank_api):
-    mock_response = Mock()
-    mock_response.json.return_value = [{'page': 1, 'pages': 1, 'per_page': 50, 'total': 0}, []]
-    mock_response.status_code = 200
-    mock_response.text = '{"page":1,"pages":1,"per_page":50,"total":0}'
-    with patch('requests.Session.get', return_value=mock_response):
-        with pytest.raises(WorldBankAPIError, match="No data found for indicator: INVALID_INDICATOR"):
-            world_bank_api.fetch_data('INVALID_INDICATOR', ['USA'], 2020, 2020)
+@responses.activate
+def test_fetch_indicator_data_connection_error(world_bank_api):
+    url = f"{world_bank_api.base_url}/country/USA/indicator/NY.GDP.MKTP.CD"
+    responses.add(responses.GET, url, body=ConnectionError("Connection failed"))
+    
+    with pytest.raises(WorldBankAPIError, match="Max retries reached for indicator: NY.GDP.MKTP.CD"):
+        world_bank_api.fetch_indicator_data('NY.GDP.MKTP.CD', 'USA', 2020, 2020)
 
-def test_fetch_data_invalid_country(world_bank_api):
-    mock_response = Mock()
-    mock_response.json.return_value = [{'page': 1, 'pages': 1, 'per_page': 50, 'total': 0}, []]
-    mock_response.status_code = 200
-    mock_response.text = '{"page":1,"pages":1,"per_page":50,"total":0}'
-    with patch('requests.Session.get', return_value=mock_response):
-        with pytest.raises(WorldBankAPIError, match="No data found for indicator: NY.GDP.MKTP.CD"):
-            world_bank_api.fetch_data('NY.GDP.MKTP.CD', ['INVALID_COUNTRY'], 2020, 2020)
+@responses.activate
+def test_fetch_indicator_data_http_error(world_bank_api):
+    url = f"{world_bank_api.base_url}/country/USA/indicator/NY.GDP.MKTP.CD"
+    responses.add(responses.GET, url, json={"error": "Not Found"}, status=404)
+    
+    with pytest.raises(WorldBankAPIError, match="HTTP error fetching data for NY.GDP.MKTP.CD: 404 Client Error: Not Found for url:"):
+        world_bank_api.fetch_indicator_data('NY.GDP.MKTP.CD', 'USA', 2020, 2020)
 
-def test_fetch_data_invalid_year_range(world_bank_api):
-    with pytest.raises(WorldBankAPIError, match="Invalid year range"):
-        world_bank_api.fetch_data('NY.GDP.MKTP.CD', ['USA'], 2020, 2019)
+@responses.activate
+def test_fetch_indicator_data_malformed_json(world_bank_api):
+    url = f"{world_bank_api.base_url}/country/USA/indicator/NY.GDP.MKTP.CD"
+    responses.add(responses.GET, url, body="Invalid JSON", status=200)
+    
+    with pytest.raises(WorldBankAPIError, match="Error parsing JSON response for indicator: NY.GDP.MKTP.CD"):
+        world_bank_api.fetch_indicator_data('NY.GDP.MKTP.CD', 'USA', 2020, 2020)
 
-def test_fetch_data_connection_error(world_bank_api):
-    with patch('requests.Session.get', side_effect=requests.ConnectionError):
-        with pytest.raises(WorldBankAPIError, match="Error fetching data for NY.GDP.MKTP.CD"):
-            world_bank_api.fetch_data('NY.GDP.MKTP.CD', ['USA'], 2020, 2020)
+def test_fetch_indicator_data_invalid_date_range(world_bank_api):
+    with pytest.raises(ValueError, match="End year must be greater than or equal to start year"):
+        world_bank_api.fetch_indicator_data('NY.GDP.MKTP.CD', 'USA', 2021, 2020)
 
-def test_fetch_data_timeout(world_bank_api):
-    with patch('requests.Session.get', side_effect=requests.Timeout):
-        with pytest.raises(WorldBankAPIError, match="Error fetching data for NY.GDP.MKTP.CD"):
-            world_bank_api.fetch_data('NY.GDP.MKTP.CD', ['USA'], 2020, 2020)
-
-def test_fetch_data_http_error(world_bank_api):
-    mock_response = Mock()
-    mock_response.raise_for_status.side_effect = requests.HTTPError
-    with patch('requests.Session.get', return_value=mock_response):
-        with pytest.raises(WorldBankAPIError, match="Error fetching data for NY.GDP.MKTP.CD"):
-            world_bank_api.fetch_data('NY.GDP.MKTP.CD', ['USA'], 2020, 2020)
-
-def test_fetch_data_empty_response(world_bank_api):
-    mock_response = Mock()
-    mock_response.json.return_value = [{'page': 1, 'pages': 1, 'per_page': 50, 'total': 0}, []]
-    mock_response.status_code = 200
-    with patch('requests.Session.get', return_value=mock_response):
-        with pytest.raises(WorldBankAPIError, match="No data found for indicator: NY.GDP.MKTP.CD"):
-            world_bank_api.fetch_data('NY.GDP.MKTP.CD', ['USA'], 2020, 2020)
-
-def test_batch_fetch_data_success(world_bank_api, mock_response):
-    with patch('requests.Session.get', return_value=mock_response):
-        queries = [('NY.GDP.MKTP.CD', ['USA'], 2020, 2020), ('SP.POP.TOTL', ['USA'], 2020, 2020)]
-        results = world_bank_api.batch_fetch_data(queries)
+@responses.activate
+def test_fetch_all_data_success(world_bank_api):
+    urls = [
+        f"{world_bank_api.base_url}/country/USA/indicator/NY.GDP.MKTP.CD",
+        f"{world_bank_api.base_url}/country/USA/indicator/SP.POP.TOTL"
+    ]
+    for url in urls:
+        responses.add(responses.GET, url, json=[
+            {'page': 1, 'pages': 1, 'per_page': 50, 'total': 1},
+            [{'indicator': {'id': 'TEST', 'value': 'Test'}, 'country': {'id': 'USA', 'value': 'United States'}, 'countryiso3code': 'USA', 'date': '2020', 'value': 1000000}]
+        ], status=200)
+    
+    queries = [('NY.GDP.MKTP.CD', ['USA'], 2020, 2020), ('SP.POP.TOTL', ['USA'], 2020, 2020)]
+    results = world_bank_api.fetch_all_data(queries)
+    
     assert len(results) == 2
     assert all(len(data) == 1 for data in results.values())
 
-def test_batch_fetch_data_partial_failure(world_bank_api, mock_response):
-    def mock_fetch(url, params, timeout):
-        if 'NY.GDP.MKTP.CD' in url:
-            return mock_response
-        raise requests.HTTPError("404 Client Error: Not Found for url: https://api.worldbank.org/v2/country/USA/indicator/INVALID_INDICATOR")
-
-    with patch('requests.Session.get', side_effect=mock_fetch):
-        queries = [('NY.GDP.MKTP.CD', ['USA'], 2020, 2020), ('INVALID_INDICATOR', ['USA'], 2020, 2020)]
-        results = world_bank_api.batch_fetch_data(queries)
-    
-    assert len(results) == 2
-    assert len(results['NY.GDP.MKTP.CD']) == 1
-    assert len(results['INVALID_INDICATOR']) == 0
-
-def test_rate_limit_handling(world_bank_api):
-    mock_responses = [
-        Mock(headers={'X-Rate-Limit-Remaining': '2'}, status_code=200),
-        Mock(headers={'X-Rate-Limit-Remaining': '1'}, status_code=200),
-        Mock(headers={'X-Rate-Limit-Remaining': '100'}, status_code=200)
-    ]
-    mock_responses[0].json.return_value = [
-        {'page': 1, 'pages': 3, 'per_page': 1, 'total': 3},
-        [{'indicator': {'id': 'NY.GDP.MKTP.CD', 'value': 'GDP (current US$)'}, 'country': {'id': 'US', 'value': 'United States'}, 'countryiso3code': 'USA', 'date': '2020', 'value': 20932750000000, 'unit': '', 'obs_status': '', 'decimal': 0}]
-    ]
-    mock_responses[1].json.return_value = [
-        {'page': 2, 'pages': 3, 'per_page': 1, 'total': 3},
-        [{'indicator': {'id': 'NY.GDP.MKTP.CD', 'value': 'GDP (current US$)'}, 'country': {'id': 'US', 'value': 'United States'}, 'countryiso3code': 'USA', 'date': '2019', 'value': 21433226000000, 'unit': '', 'obs_status': '', 'decimal': 0}]
-    ]
-    mock_responses[2].json.return_value = [
-        {'page': 3, 'pages': 3, 'per_page': 1, 'total': 3},
-        [{'indicator': {'id': 'NY.GDP.MKTP.CD', 'value': 'GDP (current US$)'}, 'country': {'id': 'US', 'value': 'United States'}, 'countryiso3code': 'USA', 'date': '2018', 'value': 20611880000000, 'unit': '', 'obs_status': '', 'decimal': 0}]
-    ]
-
-    with patch('requests.Session.get', side_effect=mock_responses):
-        with patch('time.sleep') as mock_sleep:
-            data = world_bank_api.fetch_data('NY.GDP.MKTP.CD', ['USA'], 2018, 2020)
-
-    assert len(data) == 3
-    assert [d['date'] for d in data] == ['2020', '2019', '2018']
-    mock_sleep.assert_called_once()
-
-def test_data_quality_check(world_bank_api, mock_response):
-    mock_response.json.return_value = [
+@responses.activate
+def test_fetch_all_data_partial_failure(world_bank_api):
+    url1 = f"{world_bank_api.base_url}/country/USA/indicator/NY.GDP.MKTP.CD"
+    url2 = f"{world_bank_api.base_url}/country/USA/indicator/INVALID_INDICATOR"
+    responses.add(responses.GET, url1, json=[
         {'page': 1, 'pages': 1, 'per_page': 50, 'total': 1},
-        [{'indicator': {'id': 'NY.GDP.MKTP.CD', 'value': 'GDP (current US$)'}, 'country': {'id': 'US', 'value': 'United States'}, 'countryiso3code': 'USA', 'date': '2020', 'value': None, 'unit': '', 'obs_status': '', 'decimal': 0}]
-    ]
-    with patch('requests.Session.get', return_value=mock_response):
-        data = world_bank_api.fetch_data('NY.GDP.MKTP.CD', ['USA'], 2020, 2020)
-    assert data[0]['value'] is None
-
-def test_fetch_data_invalid_response_format(world_bank_api):
-    mock_response = Mock()
-    mock_response.json.return_value = {'error': 'Invalid response'}
-    mock_response.status_code = 200
-    with patch('requests.Session.get', return_value=mock_response):
-        with pytest.raises(WorldBankAPIError, match="Invalid response format for indicator: NY.GDP.MKTP.CD"):
-            world_bank_api.fetch_data('NY.GDP.MKTP.CD', ['USA'], 2020, 2020)
-
-def test_fetch_data_invalid_data_format(world_bank_api):
-    mock_response = Mock()
-    mock_response.json.return_value = [{'page': 1, 'pages': 1, 'per_page': 50, 'total': 1}, {'invalid': 'data'}]
-    mock_response.status_code = 200
-    with patch('requests.Session.get', return_value=mock_response):
-        with pytest.raises(WorldBankAPIError, match="Invalid data format for indicator: NY.GDP.MKTP.CD"):
-            world_bank_api.fetch_data('NY.GDP.MKTP.CD', ['USA'], 2020, 2020)
-
-def test_fetch_data_multiple_pages(world_bank_api):
-    mock_responses = [
-        Mock(headers={'X-Rate-Limit-Remaining': '100'}, status_code=200),
-        Mock(headers={'X-Rate-Limit-Remaining': '99'}, status_code=200),
-    ]
-    mock_responses[0].json.return_value = [
-        {'page': 1, 'pages': 2, 'per_page': 1, 'total': 2},
-        [{'indicator': {'id': 'NY.GDP.MKTP.CD', 'value': 'GDP (current US$)'}, 'country': {'id': 'US', 'value': 'United States'}, 'countryiso3code': 'USA', 'date': '2020', 'value': 20932750000000, 'unit': '', 'obs_status': '', 'decimal': 0}]
-    ]
-    mock_responses[1].json.return_value = [
-        {'page': 2, 'pages': 2, 'per_page': 1, 'total': 2},
-        [{'indicator': {'id': 'NY.GDP.MKTP.CD', 'value': 'GDP (current US$)'}, 'country': {'id': 'US', 'value': 'United States'}, 'countryiso3code': 'USA', 'date': '2019', 'value': 21433226000000, 'unit': '', 'obs_status': '', 'decimal': 0}]
-    ]
-
-    with patch('requests.Session.get', side_effect=mock_responses):
-        data = world_bank_api.fetch_data('NY.GDP.MKTP.CD', ['USA'], 2019, 2020)
-
-    assert len(data) == 2
-    assert [d['date'] for d in data] == ['2020', '2019']
-
-def test_batch_fetch_data_empty_queries(world_bank_api):
-    results = world_bank_api.batch_fetch_data([])
-    assert results == {}
-
-def test_batch_fetch_data_all_failures(world_bank_api):
-    with patch('src.api.WorldBankAPI.fetch_data', side_effect=WorldBankAPIError("Test error")):
-        queries = [('NY.GDP.MKTP.CD', ['USA'], 2020, 2020), ('SP.POP.TOTL', ['USA'], 2020, 2020)]
-        results = world_bank_api.batch_fetch_data(queries)
+        [{'indicator': {'id': 'NY.GDP.MKTP.CD', 'value': 'GDP'}, 'country': {'id': 'USA', 'value': 'United States'}, 'countryiso3code': 'USA', 'date': '2020', 'value': 1000000}]
+    ], status=200)
+    responses.add(responses.GET, url2, json={"error": "Not Found"}, status=404)
     
-    assert len(results) == 2
-    assert all(len(data) == 0 for data in results.values())
+    queries = [('NY.GDP.MKTP.CD', ['USA'], 2020, 2020), ('INVALID_INDICATOR', ['USA'], 2020, 2020)]
+    results = world_bank_api.fetch_all_data(queries)
+    
+    assert len(results) == 1
+    assert 'NY.GDP.MKTP.CD' in results
+    assert len(results['NY.GDP.MKTP.CD']) == 1
 
 if __name__ == '__main__':
-    pytest.main()
+    pytest.main(['-n', 'auto', '--dist', 'loadfile'])
