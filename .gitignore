@@ -13,3 +13,4 @@ fetchwb.ipynb
 wb_dashboard.ipynb
 .ipynb_checkpoints
 .ipynb_checkpoints
+airflow.db
